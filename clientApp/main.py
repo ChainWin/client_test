@@ -3,7 +3,7 @@
 from app import Client
 
 if __name__ == '__main__':
-    project = '项目1'
-    token = '22e0717fd64c4855a1e0be85f26549e4'
-    key = '5d08U9hP'
+    project = input("项目名：")
+    token = input("打包机token：")
+    key = input("打包机key：")
     Client(project, token, key)
