@@ -1,0 +1,15 @@
+# coding: utf-8
+
+f=open('./requirements.txt')
+l=f.readlines()
+pro=l[0].strip('project:').strip('\n').strip()
+token = l[1].strip('token:').strip('\n').strip()
+key = l[2].strip('key:').strip('\n').strip()
+#pro=pro.strip('\n')
+#pro=pro.strip(' ')
+print(pro)
+print(token)
+print(key)
+print(len(pro))
+print(len(token))
+print(len(key))

@@ -1,5 +1,6 @@
 # coding: utf-8
 
+import time
 import os, pwd, sys
 from urllib import parse
 import subprocess
@@ -29,8 +30,8 @@ def build(task):
             read_only_token = task['read_only_token']
     except Exception as e:
         print(e)
-        error = 'the task type not right'
-        return {'error': error}
+        error = 'error: the task type not right'
+        return {'description': error, 'result_status': 1}
     else:
         user_dir = pwd.getpwuid( os.getuid() )[ 5 ]
         all_task_dir = os.path.join(user_dir, 'BuildTask')
@@ -42,8 +43,8 @@ def build(task):
         pro_name = url_list[-1].split('.')[0]
         task_dir = os.path.join(all_task_dir, task['task_id'])
         if os.path.exists(task_dir):
-            error = 'the build result has been done'
-            return {'error': error}
+            error = 'error: the build result has been done'
+            return {'description': error, 'result_status': 1}
         else: 
             os.mkdir(task_dir)
         pro_dir = os.path.join(task_dir, pro_name)
@@ -53,23 +54,19 @@ def build(task):
                 +url_list[2]+'/'+ url_list[3]+'/'+url_list[4])
         print("cloning begin...")
         try:
-            project_clone = subprocess.Popen(['git', 'clone', '-b', branch, url], cwd=task_dir)
-            project_clone.wait()
+            project_clone = subprocess.check_call(['git', 'clone', '-b', branch, url], cwd=task_dir)
         except Exception as e:
             print(e)
-            error = "clone project error"
-            return {'error': error}
+            return {'description': str(e), 'result_status': 128}
         print("cloning finish")
         
         print('building begin...')
         try:
             fhandle = open(log_dir, 'w')
-            project_build = subprocess.call(['scons'], cwd=pro_dir, stdout=fhandle)
+            project_build = subprocess.check_call(['scons'], cwd=pro_dir, stdout=fhandle)
         except Exception as e:
             print(e)
-            print('build project error')
         print("building finish")
- 
         result_status = project_build
         f = open(log_dir)
         log_contents = f.read()
@@ -82,14 +79,13 @@ def build(task):
                 import upload
                 result_url = upload.uploadfile(pro_dir)
                 result['result_url'] = result_url
-            result['description'] = 'succeed'
+            result['description'] = 'project building succeed'
         else:
-            result['description'] = 'failed'
+            result['description'] = 'project building failed'
         return result
 
 def Client(project, token, key):
-  var = 1
-  while var==1: 
+    var = 1
     value = {'project': project, 'token': token}
     strToSign = parse.urlencode(value)
     digest = hmac.new(bytes(key, encoding='utf-8'),
@@ -97,45 +93,44 @@ def Client(project, token, key):
     signature = base64.b64encode(digest).decode()
     user_info = {'project': project, 'token': token, 'signature': signature}    
     headers = {'content-type': 'application/json'}
-    # request task
-    r = requests.post(Request_url, data=json.dumps(user_info), headers=headers)    
-    try:
-        task = r.json()
-    except Exception as e:
-        print('Response error')
-        return
-    if 'error' in task:
-        print('task error: ' + task['error'])
-        return
-    else:
-        print('task: '+task['task_id']+' building begins...')
-        # building task
-        result = build(task)
-        result['token'] = token
-        result['project'] = project
-        result['task_id'] = task['task_id']
-        # return building result
-        value = {'project': project, 'token': token, 'task_id': result['task_id']}
-        if 'error' in result:
-            print(result['error'])
-            print('building error')
-            value['error'] = result['error']
+    while var==1: 
+        # request task
+        r = requests.post(Request_url, data=json.dumps(user_info), headers=headers)    
+        try:
+            task = r.json()
+        except Exception as e:
+            print('Response error')
+            return
+        if 'error' in task:
+            print('task error: ' + task['error'])
+            return
+        elif 'empty' in task:
+            time.sleep(30)
+            continue 
         else:
-            value['result_status'] = result['result_status']
-            value['description'] = result['description']
+            print('task: '+task['task_id']+' building begins...')
+            # building task
+            result = build(task)
+            print(result['description'])
+            result['token'] = token
+            result['project'] = project
+            result['task_id'] = task['task_id']
+            # return building result
+            value = {'project': project, 'token': token, 'task_id': result['task_id'],
+              'description': result['description'], 'result_status': result['result_status']}
             if 'log_contents' in result:
                 value['log_contents'] = result['log_contents']
             if 'result_url' in result:
                 value['result_url'] = result['result_url']
-        strToSign = parse.urlencode(value)
-        digest = hmac.new(bytes(key, encoding='utf-8'),
-                      bytes(strToSign, encoding='utf-8'), digestmod=hashlib.sha256).digest()
-        signature = base64.b64encode(digest).decode()
-        result['signature'] = signature
-        r = requests.post(Return_url, data=json.dumps(result), headers=headers)    
-        feedback = r.json()
-        if 'error' in feedback:
-            print('server upload failed: ' + feedback['error'])
-        else:
-            print('succeed: ' + feedback['succeed'])
+            strToSign = parse.urlencode(value)
+            digest = hmac.new(bytes(key, encoding='utf-8'),
+                          bytes(strToSign, encoding='utf-8'), digestmod=hashlib.sha256).digest()
+            signature = base64.b64encode(digest).decode()
+            result['signature'] = signature
+            r = requests.post(Return_url, data=json.dumps(result), headers=headers)    
+            feedback = r.json()
+            if 'error' in feedback:
+                print('server upload failed: ' + feedback['error'])
+            else:
+                print('succeed: ' + feedback['succeed'])
         

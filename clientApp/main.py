@@ -3,7 +3,9 @@
 from app import Client
 
 if __name__ == '__main__':
-    project = input("项目名：")
-    token = input("打包机token：")
-    key = input("打包机key：")
+    f = open('./requirements.txt')
+    lines = f.readlines()
+    project = lines[0].strip('project:').strip('\n').strip()
+    token = lines[1].strip('token:').strip('\n').strip()
+    key = lines[2].strip('key:').strip('\n').strip()
     Client(project, token, key)
