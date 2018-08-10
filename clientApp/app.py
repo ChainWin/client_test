@@ -64,20 +64,23 @@ def build(task):
         try:
             fhandle = open(log_dir, 'w')
             project_build = subprocess.check_call(['scons'], cwd=pro_dir, stdout=fhandle)
+            result_status = project_build
         except Exception as e:
             print(e)
+            result_status = 1
         print("building finish")
-        result_status = project_build
         f = open(log_dir)
         log_contents = f.read()
         f.close()
         result = {'result_status': result_status, 'log_contents': log_contents}
         if result_status==0:
-            upload_dir = os.path.join(pro_dir, 'upload.py')
-            if os.path.exists(upload_dir):
-                sys.path.append(pro_dir)
-                import upload
-                result_url = upload.uploadfile(pro_dir)
+            url_dir = os.path.join(pro_dir, 'url.txt')
+            if os.path.exists(url_dir):
+                url_file = open(url_dir)
+                result_url = url_file.readlines()
+                for i in range(len(result_url)):
+                    result_url[i].strip('\n')
+                url_file.close()
                 result['result_url'] = result_url
             result['description'] = 'project building succeed'
         else:
@@ -96,6 +99,7 @@ def Client(project, token, key):
     while var==1: 
         # request task
         r = requests.post(Request_url, data=json.dumps(user_info), headers=headers)    
+        print(r)
         try:
             task = r.json()
         except Exception as e:
@@ -106,6 +110,7 @@ def Client(project, token, key):
             return
         elif 'empty' in task:
             time.sleep(30)
+            print(task['empty'])
             continue 
         else:
             print('task: '+task['task_id']+' building begins...')
