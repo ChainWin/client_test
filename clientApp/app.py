@@ -135,5 +135,5 @@ def Client(project, token, key):
             if 'error' in feedback:
                 print('server upload failed: ' + feedback['error'])
             else:
-                print('succeed: ' + feedback['succeed'])
+                print(feedback['succeed'])
         
