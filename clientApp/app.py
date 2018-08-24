@@ -1,7 +1,6 @@
 # coding: utf-8
 
 import time
-import traceback
 import os, pwd, sys, shutil
 from urllib import parse
 import subprocess
@@ -12,55 +11,51 @@ import hashlib
 import base64
 
 
-'''
-Request_url = "http://install-managesystem.webapp.163.com/task/getTask/"
-Return_url = "http://install-managesystem.webapp.163.com/task/result/"
-'''
 Request_url = "http://127.0.0.1:9090/task/getTask/"
 Return_url = "http://127.0.0.1:9090/task/result/"
 
-def build(task):
+def project_clone(task):
     read_only_token = None
-    try:
-        git_address = task['git_address']
-        url = git_address
-        branch = task['branch']
-        time_out = task['time_out']
-        File = task['file']
-        if 'read_only_token' in task:
-            read_only_token = task['read_only_token']
-    except Exception as e:
-        print(e)
-        log_contents = traceback.format_exc()
-        error = 'error: the task type not right'
-        return {'description': error, 'result_status': 1, 'log_contents': log_contents}
+    git_address = task['git_address']
+    url = git_address
+    branch = task['branch']
+    time_out = task['time_out']
+    File = task['file']
+    if 'read_only_token' in task:
+        read_only_token = task['read_only_token']
+    user_dir = pwd.getpwuid( os.getuid() )[ 5 ]
+    all_task_dir = os.path.join(user_dir, 'BuildTask')
+    if os.path.exists(all_task_dir):
+        pass
     else:
-        user_dir = pwd.getpwuid( os.getuid() )[ 5 ]
-        all_task_dir = os.path.join(user_dir, 'BuildTask')
-        if os.path.exists(all_task_dir):
-            pass
-        else:
-            os.mkdir(all_task_dir)
-        url_list = url.split('/')
-        pro_name = url_list[-1].split('.')[0]
-        task_dir = os.path.join(all_task_dir, task['task_id'])
-        if os.path.exists(task_dir):
-        # 当项目打包过程被撤回后再次运行此任务必须保证原撤回项目已经被删除
-            shutil.rmtree(task_dir)
-        os.mkdir(task_dir)
-        pro_dir = os.path.join(task_dir, pro_name)
-        if read_only_token is not None:
-            url = ('https://'+url_list[3]+':'+read_only_token+'@'
-                +url_list[2]+'/'+ url_list[3]+'/'+url_list[4])
-        print("cloning begin...")
-        try:
-            project_clone = subprocess.check_output(['git', 'clone', '-b', branch, url], cwd=task_dir, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as err:
-            log_contents  = (err.output).decode('utf-8')
-            error = 'cloning failed'
-            return {'description': error, 'result_status': err.returncode, 'log_contents': log_contents}
-        print("cloning finish")
-        
+        os.mkdir(all_task_dir)
+    url_list = url.split('/')
+    pro_name = url_list[-1].split('.')[0]
+    task_dir = os.path.join(all_task_dir, task['task_id'])
+    if os.path.exists(task_dir):
+    # 当项目打包过程被撤回后再次运行此任务必须保证原撤回项目已经被删除
+        shutil.rmtree(task_dir)
+    os.mkdir(task_dir)
+    pro_dir = os.path.join(task_dir, pro_name)
+    if read_only_token is not None:
+        url = ('https://'+url_list[3]+':'+read_only_token+'@'
+            +url_list[2]+'/'+ url_list[3]+'/'+url_list[4])
+    print("cloning begin...")
+    try:
+        project_clone = subprocess.check_output(['git', 'clone', '-b', branch, url], cwd=task_dir, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as err:
+        log_contents  = (err.output).decode('utf-8')
+        error = 'cloning failed'
+        return {'description': error, 'result_status': err.returncode, 'log_contents': log_contents}
+    print("cloning finish")
+    return {'pro_dir': pro_dir}
+
+def build(task):
+    clone_result = project_clone(task)
+    if 'result_status' in clone_result:
+        return clone_result
+    else:
+        pro_dir = clone_result['pro_dir']
         print('building begin...')
         result_status = 0
         try:
